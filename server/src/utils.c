@@ -1,12 +1,12 @@
 #include"utils.h"
 
+#include <errno.h>
+#include <arpa/inet.h>
+
 t_log* logger;
 
-int iniciar_servidor(void)
+int iniciar_servidor()
 {
-	// Quitar esta línea cuando hayamos terminado de implementar la funcion
-	assert(!"no implementado!");
-
 	int socket_servidor;
 
 	struct addrinfo hints, *servinfo, *p;
@@ -20,9 +20,26 @@ int iniciar_servidor(void)
 
 	// Creamos el socket de escucha del servidor
 
+	socket_servidor = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
+
+	if (socket_servidor < 0) {
+		log_error(logger, "socket: %s", strerror(errno));
+		return -1;
+	}
+
 	// Asociamos el socket a un puerto
 
+	if (bind(socket_servidor, servinfo->ai_addr, servinfo->ai_addrlen) < 0) {
+		log_error(logger, "bind: %s", strerror(errno));
+		return -1;
+	}
+
 	// Escuchamos las conexiones entrantes
+
+	if (listen(socket_servidor, 10) < 0) {
+		log_error(logger, "listen: %s", strerror(errno));
+		return -1;
+	}
 
 	freeaddrinfo(servinfo);
 	log_trace(logger, "Listo para escuchar a mi cliente");
@@ -30,14 +47,32 @@ int iniciar_servidor(void)
 	return socket_servidor;
 }
 
+static void logear_ip_cliente(struct sockaddr_storage *dir) {	
+	char ip[INET6_ADDRSTRLEN];
+	int puerto;
+
+	if (dir->ss_family == AF_INET) {
+		struct sockaddr_in *s = (struct sockaddr_in *)dir;
+		puerto = ntohs(s->sin_port);
+		inet_ntop(AF_INET, &s->sin_addr, ip, sizeof(ip));
+	} else {
+		struct sockaddr_in6 *s = (struct sockaddr_in6 *)dir;
+		puerto = ntohs(s->sin6_port);
+		inet_ntop(AF_INET6, &s->sin6_addr, ip, sizeof(ip));
+	}
+
+	log_info(logger, "Direccion cliente: %s:%d", ip, puerto);
+}
+
 int esperar_cliente(int socket_servidor)
 {
-	// Quitar esta línea cuando hayamos terminado de implementar la funcion
-	assert(!"no implementado!");
-
+	struct sockaddr_storage dir_cliente;
+	socklen_t dir_cliente_tam = sizeof(dir_cliente);
 	// Aceptamos un nuevo cliente
-	int socket_cliente;
+	int socket_cliente = accept(socket_servidor, (struct sockaddr *)&dir_cliente, &dir_cliente_tam);
+
 	log_info(logger, "Se conecto un cliente!");
+	logear_ip_cliente(&dir_cliente);
 
 	return socket_cliente;
 }
